@@ -82,15 +82,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Forward CSV response for download
-    const csvContent = await backendResponse.text()
-    return new NextResponse(csvContent, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/csv',
-        'Content-Disposition': `attachment; filename="keywords-${domain}.csv"`
-      }
-    })
+    // Return job ID for tracking instead of direct CSV
+    const responseText = await backendResponse.text()
+    try {
+      const responseData = JSON.parse(responseText)
+      return NextResponse.json(responseData)
+    } catch {
+      // If not JSON, return as CSV for backward compatibility
+      return new NextResponse(responseText, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': `attachment; filename="keywords-${domain}.csv"`
+        }
+      })
+    }
   } catch (error) {
     console.error("Backend connection failed:", error)
     return NextResponse.json(
