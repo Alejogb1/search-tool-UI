@@ -25,25 +25,53 @@ export function JobStatusMonitor({ jobId, domain, onComplete, onRetry }: JobStat
   const [isPolling, setIsPolling] = useState(true)
 
   useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const response = await fetch(`/api/v1/report/${jobId}`)
-        if (response.ok) {
-          const data = await response.json()
-          setStatus(data)
+  const checkStatus = async () => {
+    try {
+      const response = await fetch(`/api/v1/report/${jobId}`)
 
-          // Stop polling if job is completed or failed
-          if (data.status === 'completed' || data.status === 'failed') {
-            setIsPolling(false)
-            if (data.status === 'completed') {
-              onComplete(jobId)
-            }
+      if (response.ok) {
+        const data = await response.json()
+        setStatus(data)
+
+        // Stop polling if job is completed or failed
+        if (data.status === 'completed' || data.status === 'failed') {
+          setIsPolling(false)
+          if (data.status === 'completed') {
+            onComplete(jobId)
           }
         }
-      } catch (error) {
-        console.error('Failed to check job status:', error)
+      } else if (response.status === 404) {
+        // Handle job not found
+        const errorData = await response.json()
+        setStatus({
+          job_id: jobId,
+          status: 'failed',
+          domain: domain,
+          error: errorData.message || 'Job not found'
+        })
+        setIsPolling(false)
+      } else {
+        // Handle other errors
+        const errorData = await response.json()
+        setStatus({
+          job_id: jobId,
+          status: 'failed',
+          domain: domain,
+          error: errorData.message || 'Failed to check job status'
+        })
+        setIsPolling(false)
       }
+    } catch (error) {
+      console.error('Failed to check job status:', error)
+      setStatus({
+        job_id: jobId,
+        status: 'failed',
+        domain: domain,
+        error: 'Network error - please try again'
+      })
+      setIsPolling(false)
     }
+  }
 
     // Check immediately
     checkStatus()

@@ -56,13 +56,38 @@ export async function GET(
   // Forward to actual backend
   try {
     const backendResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/v1/report/${jobId}`,
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/v1/jobs/${jobId}`,
       {
         headers: {
           Authorization: `Bearer ${process.env.AUTH_TOKEN}`
         }
       }
     )
+
+    // Handle 404 responses for non-existent jobs
+    if (backendResponse.status === 404) {
+      return NextResponse.json(
+        {
+          error: 'Job not found',
+          job_id: jobId,
+          message: 'The requested job ID does not exist or has expired'
+        },
+        { status: 404 }
+      )
+    }
+
+    // Handle other error responses
+    if (!backendResponse.ok) {
+      const errorText = await backendResponse.text()
+      return NextResponse.json(
+        {
+          error: 'Backend error',
+          job_id: jobId,
+          message: errorText || `HTTP ${backendResponse.status}`
+        },
+        { status: backendResponse.status }
+      )
+    }
 
     return new NextResponse(backendResponse.body, {
       status: backendResponse.status,
@@ -73,7 +98,11 @@ export async function GET(
   } catch (error) {
     console.error('Backend connection failed:', error)
     return NextResponse.json(
-      { error: 'Backend service unavailable' },
+      {
+        error: 'Backend service unavailable',
+        job_id: jobId,
+        message: 'Unable to connect to backend service'
+      },
       { status: 503 }
     )
   }
